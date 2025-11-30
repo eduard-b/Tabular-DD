@@ -1,0 +1,26 @@
+{
+  "full_data_test_auc": 0.8947431549503225,
+  "random_ipc_val_auc": 0.7822527508915786,
+  "random_ipc_test_auc": 0.7569141812559371,
+  "herding_ipc_val_auc": 0.8608549758436206,
+  "herding_ipc_test_auc": 0.8491940926119579,
+  "dm_test_auc": 0.7536901218701202,
+  "config": {
+    "dataset_name": "adult",
+    "save_dir": "./results/",
+    "device": "cuda",
+    "ipc": 5,
+    "dm_iters": 1500,
+    "dm_lr": 0.05,
+    "dm_seed": 2025,
+    "num_embedders": 10,
+    "embed_hidden": 256,
+    "embed_dim": 64,
+    "classifier_hidden": [
+      128,
+      64
+    ],
+    "classifier_epochs": 20,
+    "random_seed": 42
+  }
+}

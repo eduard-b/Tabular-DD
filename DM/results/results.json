@@ -1,0 +1,26 @@
+{
+  "full_data_test_auc": 0.7701367685353285,
+  "random_ipc_val_auc": 0.6971885103119018,
+  "random_ipc_test_auc": 0.6701360235462397,
+  "herding_ipc_val_auc": 0.6966352446970946,
+  "herding_ipc_test_auc": 0.6921576144761694,
+  "dm_test_auc": 0.6700188310318901,
+  "config": {
+    "dataset_name": "credit",
+    "save_dir": "./results/",
+    "device": "cuda",
+    "ipc": 10,
+    "dm_iters": 1500,
+    "dm_lr": 0.05,
+    "dm_seed": 2025,
+    "num_embedders": 10,
+    "embed_hidden": 256,
+    "embed_dim": 64,
+    "classifier_hidden": [
+      128,
+      64
+    ],
+    "classifier_epochs": 20,
+    "random_seed": 42
+  }
+}

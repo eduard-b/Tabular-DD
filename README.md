@@ -59,15 +59,15 @@ All synthetic datasets are then used to train the same classifier architecture.
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
-### 🧰 Classifier
+### Classifier
 A multi-layer perceptron with BatchNorm:
 ```
 input_dim → 128 → 64 → 1/num_classes
 ```
 
-### 🎯 Embedder Networks
+### Embedder Networks
 10 randomly initialized MLPs:
 ```
 input_dim → 256 → 256 → 128
@@ -112,7 +112,6 @@ Results use **IPC=10** unless noted.
 ### ✔️ What works well  
 - DM mostly **beats random IPC** on all datasets.  
 - Herding is constantly surpassing DM
-- Dry Bean & HIGGS show particularly strong consistency.
 
 ### ❗ What’s challenging  
 - Tabular data lacks local structure → harder than CV  

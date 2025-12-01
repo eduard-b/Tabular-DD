@@ -115,6 +115,7 @@ def train_classifier(X_train, y_train, X_val, y_val, input_dim, hidden, epochs=2
     for ep in range(1, epochs + 1):
         model.train()
         for xb, yb in train_loader:
+            yb = yb.float()
             opt.zero_grad()
             out = model(xb).squeeze()
             loss = crit(out, yb)
@@ -126,6 +127,7 @@ def train_classifier(X_train, y_train, X_val, y_val, input_dim, hidden, epochs=2
         preds, trues = [], []
         with torch.no_grad():
             for xb, yb in val_loader:
+                yb = yb.float()
                 out = model(xb).squeeze()
                 preds.append(out.cpu().numpy())
                 trues.append(yb.cpu().numpy())
@@ -424,12 +426,12 @@ def evaluate_classifier(model, X, y, device):
 # =========================================================
 if __name__ == "__main__":
     config = {
-        "dataset_name": "bank",
+        "dataset_name": "adult",
         "save_dir": "./results/",
         "device": "cuda" if torch.cuda.is_available() else "cpu",
 
         # experiment knobs:
-        "ipc": 1,
+        "ipc": 10,
         "dm_iters": 1500,
         "dm_lr": 0.05,
         "dm_seed": 2025,

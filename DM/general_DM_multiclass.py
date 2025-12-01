@@ -312,6 +312,11 @@ def run_experiment(config):
     input_dim        = data["input_dim"]
     num_classes      = data["num_classes"]
 
+    print(np.unique(y_train.cpu().detach()))
+    print(np.unique(y_val.cpu().detach()))
+    print(np.unique(y_test.cpu().detach()))
+    print(num_classes)
+
     # ====================================================
     # Full data baseline
     # ====================================================
@@ -451,7 +456,7 @@ def run_experiment(config):
 
 if __name__ == "__main__":
     config = {
-        "dataset_name": "drybean",
+        "dataset_name": "higgs",
         "save_dir": "./results_multiclass/",
         "device": "cuda" if torch.cuda.is_available() else "cpu",
 

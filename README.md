@@ -1,9 +1,9 @@
-# 📦 Tabular Dataset Distillation (DM / DC) Experiments  
+# Tabular Dataset Distillation (DM / DC) Experiments  
 *A systematic evaluation of Dataset Condensation on real tabular benchmarks*
 
 ---
 
-## 🚀 Overview
+## Overview
 
 This repository implements **Dataset Condensation / Dataset Distillation (DC/DD)** for **tabular datasets**, following the **Distribution Matching (DM / DM-DC)** paradigm:
 
@@ -18,7 +18,7 @@ We evaluate across **seven real-world classification datasets** (OpenML-based), 
 
 ---
 
-## 📁 Supported Datasets
+## Supported Datasets
 
 ### Binary  
 - Adult (Census Income)  
@@ -107,13 +107,8 @@ Results use **IPC=10** unless noted.
 
 ---
 
-##  Observations
+###  Observations
 
-### ✔️ What works well  
-- DM mostly **beats random IPC** on all datasets.  
-- Herding is constantly surpassing DM
-
-### ❗ What’s challenging  
 - Tabular data lacks local structure → harder than CV  
 - High imbalance (e.g., Covertype class 4) makes IPC=10 unrealistic  
 - DM struggles when:

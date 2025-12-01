@@ -1,0 +1,34 @@
+{
+  "run_id": "20251201-204057",
+  "dataset": "higgs",
+  "method": "True DM (Tabular)",
+  "ipc": 10,
+  "embedder_type": "LayerNorm",
+  "embed_hidden": 256,
+  "embed_dim": 128,
+  "dm_iters": 2000,
+  "dm_lr": 0.05,
+  "dm_batch_real": 256,
+  "results": {
+    "full": {
+      "val_auc": 0.7908782899842814,
+      "test_acc": 0.7107016589611096,
+      "test_auc": 0.7864570552340718
+    },
+    "random": {
+      "val_auc": 0.5212510989914827,
+      "test_acc": 0.5192412292629861,
+      "test_auc": 0.5080028229707287
+    },
+    "herd": {
+      "val_auc": 0.6185231398726114,
+      "test_acc": 0.5819282023388632,
+      "test_auc": 0.6236817621606163
+    },
+    "dm": {
+      "val_auc": 0.5805771853357271,
+      "test_acc": 0.5542561871090563,
+      "test_auc": 0.5769996840362389
+    }
+  }
+}

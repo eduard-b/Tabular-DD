@@ -1,0 +1,34 @@
+{
+  "run_id": "20251201-205854",
+  "dataset": "airlines",
+  "method": "True DM (Tabular)",
+  "ipc": 10,
+  "embedder_type": "BatchNorm",
+  "embed_hidden": 256,
+  "embed_dim": 128,
+  "dm_iters": 2000,
+  "dm_lr": 0.05,
+  "dm_batch_real": 256,
+  "results": {
+    "full": {
+      "val_auc": 0.6978658605540312,
+      "test_acc": 0.6533222919859594,
+      "test_auc": 0.7006357308853287
+    },
+    "random": {
+      "val_auc": 0.5635548849819993,
+      "test_acc": 0.5275250902259356,
+      "test_auc": 0.5261570557022761
+    },
+    "herd": {
+      "val_auc": 0.6508206824136213,
+      "test_acc": 0.6233746971869284,
+      "test_auc": 0.6513465132819745
+    },
+    "dm": {
+      "val_auc": 0.5633280748476839,
+      "test_acc": 0.534669006773125,
+      "test_auc": 0.534874976277683
+    }
+  }
+}

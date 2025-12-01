@@ -1,0 +1,9 @@
+| Dataset | IPC | Classes | Norm | Full ACC | Full AUC | Rand ACC | Rand AUC | Herd ACC | Herd AUC | DM ACC | DM AUC | embed_hidden | embed_dim | iters | lr | file |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| adult | 10 | - | LayerNorm | 0.8478 | 0.8951 | 0.6921 | 0.7320 | 0.7344 | 0.8403 | 0.7620 | 0.8412 | 256 | 128 | 2000 | 0.05 | adult_trueDM_ipc10_LayerNorm_h256_e128_it2000_lr0.05_20251201-203506.json |
+| airlines | 10 | - | LayerNorm | 0.6533 | 0.7006 | 0.5275 | 0.5262 | 0.6234 | 0.6513 | 0.5847 | 0.6051 | 256 | 128 | 2000 | 0.05 | airlines_trueDM_ipc10_LayerNorm_h256_e128_it2000_lr0.05_20251201-204026.json |
+| bank | 10 | - | LayerNorm | 0.9022 | 0.9151 | 0.6469 | 0.6922 | 0.7753 | 0.8461 | 0.7586 | 0.8112 | 256 | 128 | 2000 | 0.05 | bank_trueDM_ipc10_LayerNorm_h256_e128_it2000_lr0.05_20251201-203526.json |
+| covertype | 10 | - | LayerNorm | 0.8922 | 0.9901 | 0.2986 | 0.7323 | 0.4331 | 0.8237 | 0.4622 | 0.8189 | 256 | 128 | 2000 | 0.05 | covertype_trueDM_ipc10_LayerNorm_h256_e128_it2000_lr0.05_20251201-203815.json |
+| credit | 10 | - | LayerNorm | 0.8178 | 0.7703 | 0.6522 | 0.6701 | 0.4089 | 0.6921 | 0.6247 | 0.7281 | 256 | 128 | 2000 | 0.05 | credit_trueDM_ipc10_LayerNorm_h256_e128_it2000_lr0.05_20251201-203539.json |
+| drybean | 10 | - | LayerNorm | 0.9868 | 0.9996 | 0.7341 | 0.9695 | 0.7204 | 0.9771 | 0.6675 | 0.9735 | 256 | 128 | 2000 | 0.05 | drybean_trueDM_ipc10_LayerNorm_h256_e128_it2000_lr0.05_20251201-203444.json |
+| higgs | 10 | - | LayerNorm | 0.7107 | 0.7865 | 0.5192 | 0.5080 | 0.5819 | 0.6237 | 0.5543 | 0.5770 | 256 | 128 | 2000 | 0.05 | higgs_trueDM_ipc10_LayerNorm_h256_e128_it2000_lr0.05_20251201-204057.json |

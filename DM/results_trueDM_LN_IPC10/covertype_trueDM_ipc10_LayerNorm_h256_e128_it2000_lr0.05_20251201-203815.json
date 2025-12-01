@@ -1,0 +1,34 @@
+{
+  "run_id": "20251201-203815",
+  "dataset": "covertype",
+  "method": "True DM (Tabular)",
+  "ipc": 10,
+  "embedder_type": "LayerNorm",
+  "embed_hidden": 256,
+  "embed_dim": 128,
+  "dm_iters": 2000,
+  "dm_lr": 0.05,
+  "dm_batch_real": 256,
+  "results": {
+    "full": {
+      "val_auc": 0.99012517708114,
+      "test_acc": 0.8922227831834038,
+      "test_auc": 0.9900839471908116
+    },
+    "random": {
+      "val_auc": 0.7305430000251193,
+      "test_acc": 0.2985817881402607,
+      "test_auc": 0.7322837040521181
+    },
+    "herd": {
+      "val_auc": 0.8233873953212486,
+      "test_acc": 0.4331168533137507,
+      "test_auc": 0.8236886595819523
+    },
+    "dm": {
+      "val_auc": 0.8170046846338261,
+      "test_acc": 0.46216954286763356,
+      "test_auc": 0.8189146843004318
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "run_id": "20251201-205306",
+  "dataset": "adult",
+  "method": "True DM (Tabular)",
+  "ipc": 10,
+  "embedder_type": "BatchNorm",
+  "embed_hidden": 256,
+  "embed_dim": 128,
+  "dm_iters": 2000,
+  "dm_lr": 0.05,
+  "dm_batch_real": 256,
+  "results": {
+    "full": {
+      "val_auc": 0.9139888769799054,
+      "test_acc": 0.8478231199672445,
+      "test_auc": 0.8950583662923635
+    },
+    "random": {
+      "val_auc": 0.7712344959587876,
+      "test_acc": 0.6920977207588371,
+      "test_auc": 0.7319500058436907
+    },
+    "herd": {
+      "val_auc": 0.8523034875283397,
+      "test_acc": 0.734406987853146,
+      "test_auc": 0.8402735092908544
+    },
+    "dm": {
+      "val_auc": 0.8355845133445841,
+      "test_acc": 0.7131158727992357,
+      "test_auc": 0.8292734010137115
+    }
+  }
+}

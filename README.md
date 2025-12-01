@@ -33,7 +33,7 @@ We evaluate across **seven real-world classification datasets** (OpenML-based), 
 
 ---
 
-## 🧪 Method Summary
+## Method Summary
 
 Each experiment compares:
 
@@ -74,7 +74,7 @@ input_dim → 256 → 256 → 128
 ```
 Embedder weights are **frozen**.
 
-### 🧪 Training
+### Training
 - Optimizer: Adam  
 - LR: 0.05 for DM  
 - Epochs: 20 for classifier  
@@ -84,14 +84,14 @@ Embedder weights are **frozen**.
 
 ---
 
-## 📊 Results
+## Results
 
 Below is the **complete benchmark table** across all datasets.  
 Results use **IPC=10** unless noted.
 
 ---
 
-## 📊 Summary of Results Across Tabular Datasets
+## Summary of Results Across Tabular Datasets
 
 | Dataset    | IPC | #Classes | Full Acc | Full AUC/F1 | Rand Acc | Rand AUC/F1 | Herd Acc | Herd AUC/F1 | DM Acc | DM AUC/F1 |
 |-----------|-----|----------|----------|--------------|----------|--------------|----------|--------------|---------|------------|
@@ -107,7 +107,7 @@ Results use **IPC=10** unless noted.
 
 ---
 
-## 🔍 Observations
+##  Observations
 
 ### ✔️ What works well  
 - DM mostly **beats random IPC** on all datasets.  
@@ -123,7 +123,7 @@ Results use **IPC=10** unless noted.
 
 ---
 
-## 📐 How to Run
+## How to Run
 
 Run a binary dataset:
 ```bash
@@ -137,7 +137,7 @@ python general_DM_multiclass.py --dataset drybean
 
 ---
 
-## 📁 Generated Files
+## Generated Files
 
 - `results/` — JSON results for binary datasets  
 - `results_multiclass/` — JSON results for multiclass  
@@ -146,7 +146,7 @@ python general_DM_multiclass.py --dataset drybean
 
 ---
 
-## 📘 Citation
+## Citation
 
 If you use this work in your research, consider citing the original DM/DC papers:
 - **Distribution Matching for Dataset Condensation** (Zhao et al., 2021)

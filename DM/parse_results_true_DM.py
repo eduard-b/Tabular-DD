@@ -81,7 +81,7 @@ def main(results_dir):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dir", type=str, default="./results_trueDM_BN_IPC10", help="Directory with JSON runs.")
+    parser.add_argument("--dir", type=str, default="./results_trueDM_BN_2", help="Directory with JSON runs.")
     args = parser.parse_args()
 
     main(args.dir)

@@ -313,7 +313,7 @@ def sample_random_embedder(input_dim, hidden, embed_dim, use_bn, device):
 # ============================================================================
 # TRUE DM Synthesis (tabular)
 # ============================================================================
-def dm_true_synthesize(
+def dm_true_synthesize_old(
     X_train,
     y_train,
     ipc,
@@ -373,6 +373,122 @@ def dm_true_synthesize(
             mu_syn  = feat_syn.mean(0)
 
             loss += ((mu_real - mu_syn)**2).sum()
+
+        loss.backward()
+        optimizer_img.step()
+
+        if it % 50 == 0:
+            print(f"[DM] iter {it:04d} | loss {(loss.item()/num_classes):.6f}")
+
+    return syn_data.detach(), label_syn.detach()
+
+def dm_true_synthesize(
+    X_train,
+    y_train,
+    ipc,
+    iters,
+    lr_img,
+    batch_real,
+    input_dim,
+    num_classes,
+    embed_hidden,
+    embed_dim,
+    use_bn,              # NEW: BN flag
+    device,
+):
+
+    set_seed(0)
+    X_train = X_train.to(device).float()
+    y_train = y_train.to(device).long()
+
+    # group indices by class
+    y_np = y_train.cpu().numpy()
+    indices_class = [np.where(y_np == c)[0] for c in range(num_classes)]
+
+    # initialize synthetic data as random real samples
+    syn_data = torch.randn(
+        (num_classes * ipc, input_dim),
+        device=device,
+        requires_grad=True,
+        dtype=torch.float32,
+    )
+    label_syn = torch.arange(num_classes, device=device).repeat_interleave(ipc).long()
+
+    def get_real_batch(c, n):
+        idx = indices_class[c]
+        if len(idx) < n:
+            idx_sel = np.random.choice(idx, n, replace=True)
+        else:
+            idx_sel = np.random.choice(idx, n, replace=False)
+        return X_train[idx_sel]
+
+    # init with real samples
+    with torch.no_grad():
+        for c in range(num_classes):
+            syn_data[c*ipc:(c+1)*ipc] = get_real_batch(c, ipc)
+
+    optimizer_img = torch.optim.SGD([syn_data], lr=lr_img, momentum=0.5)
+
+    # -------------------------
+    # DM optimization
+    # -------------------------
+    for it in range(iters + 1):
+
+        embed_net = sample_random_embedder(
+            input_dim=input_dim,
+            hidden=embed_hidden,
+            embed_dim=embed_dim,
+            use_bn=use_bn,
+            device=device,
+        )
+
+        optimizer_img.zero_grad()
+
+        # ----------------------------------------
+        # CASE 1: NON-BN → class-by-class forward
+        # ----------------------------------------
+        if not use_bn:
+
+            loss = 0.0
+            for c in range(num_classes):
+                real_b = get_real_batch(c, batch_real)           # (B, d)
+                syn_b  = syn_data[c*ipc:(c+1)*ipc]               # (ipc, d)
+
+                feat_real = embed_net(real_b).detach()
+                feat_syn  = embed_net(syn_b)
+
+                mu_real = feat_real.mean(0)
+                mu_syn  = feat_syn.mean(0)
+
+                loss += ((mu_real - mu_syn)**2).sum()
+
+        # ----------------------------------------
+        # CASE 2: BN → concatenate all classes
+        # ----------------------------------------
+        else:
+            # gather all real
+            real_batches = []
+            syn_batches  = []
+
+            for c in range(num_classes):
+                real_batches.append(get_real_batch(c, batch_real))
+                syn_batches.append(syn_data[c*ipc:(c+1)*ipc])
+
+            real_big = torch.cat(real_batches, dim=0)     # (C*B, d)
+            syn_big  = torch.cat(syn_batches , dim=0)     # (C*ipc, d)
+
+            # BN forward (two separate forward passes)
+            feat_real_big = embed_net(real_big).detach()  # BN stats on real only
+            feat_syn_big  = embed_net(syn_big)            # BN stats on syn only
+
+            # reshape back into class groups
+            feat_real = feat_real_big.reshape(num_classes, batch_real, -1)
+            feat_syn  = feat_syn_big.reshape(num_classes, ipc, -1)
+
+            # compute loss over per-class means
+            mu_real = feat_real.mean(dim=1)   # (C, d)
+            mu_syn  = feat_syn.mean(dim=1)    # (C, d)
+            loss = ((mu_real - mu_syn)**2).sum()
 
         loss.backward()
         optimizer_img.step()
@@ -558,7 +674,7 @@ if __name__ == "__main__":
 
         config = {
             "dataset_name": db,
-            "save_dir": "./results_trueDM/",
+            "save_dir": "./results_trueDM_BN_2/",
             "device": "cuda" if torch.cuda.is_available() else "cpu",
 
             # DM hyperparameters
@@ -570,7 +686,7 @@ if __name__ == "__main__":
 
             # Embedder architecture
             # ----------------------------------------------------------
-            # 🔥 switch between LayerNorm and BatchNorm here:
+            # switch between LayerNorm and BatchNorm here:
             # True → BatchNorm
             # False → LayerNorm
             # ----------------------------------------------------------

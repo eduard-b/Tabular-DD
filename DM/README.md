@@ -157,3 +157,72 @@ The parser script `parse_results_trueDM.py` produces a Markdown summary from all
 | credit | 10 | - | BatchNorm | 0.7703 | 0.6701 | 0.6921 | 0.6554 | 256 | 128 | 2000 | 0.05 | credit_trueDM_ipc10_BatchNorm_h256_e128_it2000_lr0.05_20251202-180626.json |
 | drybean | 10 | - | BatchNorm | 0.9996 | 0.9695 | 0.9771 | 0.9756 | 256 | 128 | 2000 | 0.05 | drybean_trueDM_ipc10_BatchNorm_h256_e128_it2000_lr0.05_20251202-180539.json |
 | higgs | 10 | - | BatchNorm | 0.7865 | 0.5080 | 0.6237 | 0.5295 | 256 | 128 | 2000 | 0.05 | higgs_trueDM_ipc10_BatchNorm_h256_e128_it2000_lr0.05_20251202-181143.json |
+
+---
+
+## Batch-Norm statistics
+
+Recently, dataset condensation via matching internal model statistics has gained traction. For example, SRe²L (Squeeze, Recover and Relabel) – a NeurIPS 2023 method — demonstrates that by first training a neural network on the full dataset, then synthesizing new data by aligning the network’s BatchNorm running mean/variance on synthetic inputs with those from real data, one can recover a compact distilled dataset that — despite being orders of magnitude smaller — preserves sufficient information for training high-accuracy models. 
+
+In the “Recover” phase, SRe²L optimizes synthetic inputs (initialized from noise) under a loss combining BN-stat matching, soft-label consistency, and simple regularizers (e.g. ℓ₂ / total-variation), producing a condensed set that yields strong performance even on large datasets such as ImageNet-1K. 
+
+Our tabular DM implementation follows a similar high-level principle — by embedding data via a neural network (optionally using BatchNorm), and matching class-wise feature moments between real and synthetic sets — adapted to the case of tabular data rather than images. This domain adaptation avoids image-specific regularization and augmentation, but retains the essential idea of distributional matching in a learned embedding space
+
+## Embedder Ablation Study
+
+To assess how the choice of feature extractor (“embedder”) affects tabular dataset distillation, we conduct an ablation over six architectures. During DM synthesis, the embedder is a fixed, randomly initialized network used only to compute the feature-matching loss; its parameters are not trained.
+
+We evaluate the following embedders:
+
+- LN — 2-layer MLP with LayerNorm (baseline)
+- BN — same architecture with BatchNorm
+- BNDeep — deeper BN stack (more nonlinear layers)
+- BNWide — wide BN network (higher capacity)
+- BNRes — residual MLP with BN blocks
+- BNCascade — BN-heavy cascade (most expressive)
+
+These models differ in width, depth, normalization, and residual structure, providing a range of embedding geometries.
+
+For each dataset and each embedder, we run the standard Distribution Matching (DM) objective using only per-class feature-mean matching. No BatchNorm-statistics loss is used here; this isolates the effect of embedder architecture alone. Each distilled dataset is then used to train a classifier, and test AUC is reported. Full-data, Random IPC, and Herding IPC baselines are included for comparison.
+
+Results from all runs are saved as JSON files and aggregated into a unified table with columns:
+
+Dataset, IPC, Classes, Norm, Full AUC, Rand AUC, Herd AUC, DM AUC, embed_hidden, embed_dim, iters, lr, file.
+
+This ablation reveals how the choice of embedder influences distilled-data quality on tabular datasets, providing a clean foundation for evaluating more advanced objectives such as BatchNorm-statistics matching.
+
+| Dataset   | Full AUC  | Rand AUC  | Herd AUC  | LN AUC   | BN AUC   | BNDeep AUC | BNWide AUC | BNRes AUC | BNCascade AUC |
+|-----------|-----------|-----------|-----------|----------|----------|------------|------------|-----------|----------------|
+| adult     | 0.895058  | 0.731950  | 0.840260  | 0.843080 | 0.828890 | 0.823710   | 0.821695   | 0.839648  | 0.821203       |
+| airlines  | 0.700636  | 0.526157  | 0.651348  | 0.601879 | 0.533718 | 0.498597   | 0.495686   | 0.595988  | 0.491306       |
+| bank      | 0.915145  | 0.692192  | 0.846062  | 0.811742 | 0.710006 | 0.675850   | 0.676163   | 0.802547  | 0.668721       |
+| covertype | 0.990084  | 0.732284  | 0.823773  | 0.817537 | 0.796904 | 0.786684   | 0.786699   | 0.822952  | 0.784098       |
+| credit    | 0.770316  | 0.670140  | 0.692166  | 0.731576 | 0.657193 | 0.633681   | 0.633513   | 0.696522  | 0.630608       |
+| drybean   | 0.999642  | 0.969517  | 0.977058  | 0.973469 | 0.975577 | 0.978515   | 0.978541   | 0.973593  | 0.978011       |
+| higgs     | 0.786457  | 0.508003  | 0.623686  | 0.577478 | 0.531963 | 0.512929   | 0.512947   | 0.562216  | 0.512469       |
+
+-----
+
+BN DM results
+
+| Dataset   |   Full AUC |   Rand AUC |   Herd AUC |   DM-BN AUC | file                      |
+|:----------|-----------:|-----------:|-----------:|------------:|:--------------------------|
+| adult     |   0.895058 |   0.73195  |   0.840265 |    0.737701 | adult_dmBN_ipc10.json     |
+| airlines  |   0.700636 |   0.526157 |   0.651348 |    0.523843 | airlines_dmBN_ipc10.json  |
+| bank      |   0.915145 |   0.692192 |   0.846069 |    0.594989 | bank_dmBN_ipc10.json      |
+| covertype |   0.990084 |   0.732284 |   0.823724 |    0.691984 | covertype_dmBN_ipc10.json |
+| credit    |   0.770316 |   0.67014  |   0.692119 |    0.620799 | credit_dmBN_ipc10.json    |
+| drybean   |   0.999642 |   0.969517 |   0.977057 |    0.936522 | drybean_dmBN_ipc10.json   |
+| higgs     |   0.786457 |   0.508003 |   0.623692 |    0.535829 | higgs_dmBN_ipc10.json     |
+
+LN ablation results
+
+| Dataset   |   Full AUC |   Rand AUC | Herd AUC     | LN AUC     | LNDeep AUC   | LNWide AUC   | LNRes AUC    | LNCascade AUC   |
+|:----------|-----------:|-----------:|:-------------|:-----------|:-------------|:-------------|:-------------|:----------------|
+| adult     |   0.895058 |   0.73195  | 0.840271     | 0.842904   | 0.844155     | *0.844245*   | **0.845593** | 0.840814        |
+| airlines  |   0.700636 |   0.526157 | **0.651348** | 0.605764   | 0.595468     | 0.603687     | *0.616599*   | 0.586157        |
+| bank      |   0.915145 |   0.692192 | **0.846056** | *0.810129* | 0.809082     | 0.805788     | 0.808435     | 0.783345        |
+| covertype |   0.990084 |   0.732284 | **0.823756** | 0.817764   | 0.815849     | 0.817965     | *0.821923*   | 0.809592        |
+| credit    |   0.770316 |   0.67014  | 0.692139     | 0.727118   | **0.731637** | 0.728462     | *0.730588*   | 0.726402        |
+| drybean   |   0.999642 |   0.969517 | **0.977028** | 0.973334   | 0.973476     | 0.973606     | 0.973151     | *0.974667*      |
+| higgs     |   0.786457 |   0.508003 | **0.623686** | 0.579255   | 0.578725     | 0.578672     | *0.582558*   | 0.577789        |

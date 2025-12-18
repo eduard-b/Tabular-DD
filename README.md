@@ -103,7 +103,7 @@ if __name__ == "__main__":
 
 ---
 
-### 🧪 Synthesizer registry  
+### Synthesizer registry  
 *Location:* `synth/registry.py`
 
 | Key          | Category          | Teacher required |
@@ -119,7 +119,7 @@ if __name__ == "__main__":
 
 ---
 
-### 🧠 Embedder registry  
+### Embedder registry  
 *Location:* `models/embedders.py`
 
 | Key           | Normalization | Architecture |
@@ -137,7 +137,7 @@ if __name__ == "__main__":
 
 ---
 
-### 🧩 Classifier registry  
+### Classifier registry  
 *Location:* `models/classifiers.py`
 
 | Key   | Classifier            |

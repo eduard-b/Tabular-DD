@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
     CLASSIFIERS = [
         "mlp",
-        "logreg",
+        "rf",
     ]
 
     MOMENTS = [

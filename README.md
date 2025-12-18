@@ -1,159 +1,151 @@
-# True Dataset Condensation for Tabular Data (True_DM)
+### How to perform an experiment
 
-This repository contains an implementation of a principled, high-fidelity variant of Dataset Condensation, adapted for tabular data. The method implemented here is referred to as **True_DM**, and is inspired directly by the logic of the original Dataset Condensation paper (Zhao et al., 2021) while correcting several limitations in the commonly circulated PyTorch reference implementation for image data.
+The code base was structured into the following pipeline. To perform a sweep experiment, we use the in-file config with the following options:
 
-The goal of Dataset Condensation is to produce a *very small synthetic dataset* that, when used to train a classifier, yields accuracy comparable to the full training set. For tabular tasks—especially with heterogeneous feature types—careful adaptation is required to obtain meaningful condensed datasets. This README provides an overview of the method, its rationale, and explains why True_DM is a more accurate translation of the original algorithm than the DM script that the project initially relied on.
+```python
+if __name__ == "__main__":
 
----
+    DB_LIST = [
+        "drybean",
+        "adult",
+        "bank",
+        "credit",
+        "covertype",
+        "airlines",
+        "higgs",
+    ]
 
-## 1. Overview
+    EMBEDDERS = [
+        "ln_res",
+        "ln_wide",
+    ]
 
-True_DM is a full re-implementation of the core Dataset Condensation logic for tabular datasets. It includes:
+    SYNTH_TYPES = [
+        "dm_moments",
+        "dm_standard",
+    ]
 
-• Classifier-agnostic synthetic sample optimization.  
-• Fully differentiable condensation of per-class sample statistics.  
-• Fresh random neural networks (embedders) sampled at every optimization step.  
-• Mean feature matching in embedder space, following the original DM objective.  
-• Per-class synthetic batches optimized using SGD with momentum.  
-• Multiclass-safe baselines for Random IPC and Herding.  
-• Support for both LayerNorm and BatchNorm embedders.  
-• Multi-dataset evaluation loop with unified result logging.
+    CLASSIFIERS = [
+        "mlp",
+        "logreg",
+    ]
 
-The method condenses a dataset of size *N* into a synthetic dataset of size *C × IPC* where *C* is the number of classes and *IPC* is the number of synthetic samples per class.
+    MOMENTS = [
+        {"name": "M1", "max_moment": 1},
+        {"name": "M2", "max_moment": 2},
+        {"name": "M3", "max_moment": 3},
+        {"name": "M4", "max_moment": 4},
+    ]
 
----
+    RESULTS_DIR = "./results_moments"
+    ensure_dir(RESULTS_DIR)
 
-## 2. Method: How True_DM Works
+    for db in DB_LIST:
+        for embedder in EMBEDDERS:
+            for synth_type in SYNTH_TYPES:
+                for classifier in CLASSIFIERS:
+                    for exp in MOMENTS:
 
-True_DM mimics the logic of the original Dataset Condensation algorithm, but removes several shortcuts and simplifications that were present in prior PyTorch implementations meant for image data.
+                        save_dir = os.path.join(
+                            RESULTS_DIR,
+                            db,
+                            embedder,
+                            synth_type,
+                            classifier,
+                            exp["name"],
+                        )
 
-For each condensation iteration:
+                        config = {
+                            "dataset_name": db,
+                            "save_dir": save_dir,
+                            "device": "cuda" if torch.cuda.is_available() else "cpu",
 
-1. A **fresh randomly initialized embedder network** is sampled.  
-2. For each real class *c*:  
-   - A batch of real samples is drawn.  
-   - The embedder extracts features for the real batch.  
-3. For each synthetic class *c*:  
-   - The embedder extracts features from the current synthetic samples.  
-4. The loss is computed as the **mean squared error between the class-wise feature means** of real vs synthetic samples.  
-5. The synthetic data is updated with SGD through the embedder (which remains frozen).
+                            # Synthesis
+                            "synth_type": synth_type,
+                            "ipc": 10,
+                            "dm_iters": 2000,
+                            "dm_lr": 0.05,
+                            "dm_batch_real": 256,
 
-This process is repeated for a fixed number of iterations, producing a condensed dataset that transfers well to downstream classifiers.
+                            # Embedder
+                            "dm_embedder_type": embedder,
+                            "dm_embed_hidden": 256,
+                            "dm_embed_dim": 128,
 
----
+                            # Moments
+                            "max_moment": exp["max_moment"],
 
-## 3. Why True_DM Is More Accurate Than the Earlier DM Script
+                            # Classifier
+                            "classifier": classifier,
+                            "classifier_hidden": [128, 64],
+                            "classifier_epochs": 20,
 
-The original project used a script adapted from the public GitHub implementation of Dataset Condensation for image classification (the code that trains ConvNets on CIFAR-10). That code works well for images, but its internal logic included several assumptions that are not appropriate for tabular data or even for faithful reproduction of the method’s theory.
+                            # Reproducibility
+                            "random_seed": 42,
+                        }
 
-True_DM corrects these issues:
+                        run_dm_moment_experiment(config)
+```
+## Registries
 
-### 3.1. Fresh Embedders per Iteration
-The original algorithm samples a *new random network every iteration*.  
-Public DM implementations often reuse a fixed pool of networks or even a single network for all updates, reducing variability and weakening the theoretical justification for feature matching.
+### 📊 Dataset registry  
+*Location:* `data/prepare_database.py`
 
-True_DM restores the intended “fresh random function per iteration” logic.
-
-### 3.2. Proper Logit Flow, Loss Functions, and Label Handling
-Earlier scripts mixed:
-• BCE instead of BCEWithLogitsLoss  
-• Sigmoid in the forward pass  
-• Float labels for multiclass data  
-• Non-logit outputs for CE loss
-
-True_DM normalizes all classification and evaluation paths:  
-• logits only  
-• BCEWithLogitsLoss for binary  
-• CrossEntropyLoss for multiclass  
-• correct probabilities for ROC-AUC computation  
-
-This prevents numerical errors and CUDA asserts.
-
-### 3.3. Image-specific Assumptions Removed
-The reference implementation uses:
-• ConvNets  
-• BN behavior tuned for images  
-• augmentations that do not exist for tabular data  
-• hard-coded embedder shapes  
-
-True_DM implements tabular-appropriate embedders with LayerNorm or BatchNorm and avoids any image-only operations.
-
-### 3.4. Multiclass-Safe Baselines
-The original baselines (IPC-random, IPC-herding) assumed binary or image-class datasets.  
-True_DM generalizes both to arbitrary class counts.
-
-### 3.5. Correct Synthetic Initialization Strategy
-The reference implementation includes complex initialization options ("real", "noise") but also makes assumptions about 2D spatial structure.  
-True_DM simplifies this to tabular-appropriate initialization while maintaining faithfulness to the DM objective.
-
----
-
-## 4. Usage
-
-True_DM is driven by a single experiment engine: run_dm_true_experiment(config)
-
-A multi-dataset loop is provided in `__main__`, automatically running the algorithm on:
-
-• adult  
-• bank marketing  
-• credit default  
-• drybean  
-• covertype  
-• airlines  
-• higgs  
-
-All results are written as `*.json` files into `results_trueDM/`.
+| Key         | Dataset name     |
+|-------------|------------------|
+| `adult`     | Adult Income     |
+| `bank`      | Bank Marketing   |
+| `credit`    | Credit Default   |
+| `drybean`   | Dry Bean         |
+| `covertype` | Forest Covertype |
+| `airlines`  | Airlines         |
+| `higgs`     | HIGGS            |
 
 ---
 
-## 5. Switching Between LayerNorm and BatchNorm
+### 🧪 Synthesizer registry  
+*Location:* `synth/registry.py`
 
-The embedder used in the condensation step can be switched in the configuration:
-
-- "dm_use_batchnorm": False # LayerNorm (recommended for tabular)
--   "dm_use_batchnorm": True # BatchNorm (closer to original DM)
-
-LayerNorm typically performs better for tabular data because BatchNorm relies on batch statistics that may not be representative in low-IPC settings.
+| Key          | Category          | Teacher required |
+|--------------|-------------------|------------------|
+| `dm_ln`      | Condensation      | No               |
+| `dm_bn`      | Condensation      | No               |
+| `dm_moments` | Condensation      | No               |
+| `bn_stats`   | Teacher matching  | Yes              |
+| `random_ipc` | Coreset           | No               |
+| `vq`         | Coreset           | No               |
+| `voronoi`    | Coreset           | No               |
+| `gonzalez`   | Coreset           | No               |
 
 ---
 
-## 6. Results
+### 🧠 Embedder registry  
+*Location:* `models/embedders.py`
 
-Below is the space where the aggregated results table can be pasted.  
-The parser script `parse_results_trueDM.py` produces a Markdown summary from all JSON files in the results directory.
+| Key           | Normalization | Architecture |
+|---------------|---------------|--------------|
+| `bn`          | BatchNorm     | Shallow      |
+| `bn_deep`     | BatchNorm     | Deep         |
+| `bn_wide`     | BatchNorm     | Wide         |
+| `bn_res`      | BatchNorm     | Residual     |
+| `bn_cascade`  | BatchNorm     | Cascade      |
+| `ln`          | LayerNorm     | Shallow      |
+| `ln_deep`     | LayerNorm     | Deep         |
+| `ln_wide`     | LayerNorm     | Wide         |
+| `ln_res`      | LayerNorm     | Residual     |
+| `ln_cascade`  | LayerNorm     | Cascade      |
+
+---
+
+### 🧩 Classifier registry  
+*Location:* `models/classifiers.py`
+
+| Key   | Classifier            |
+|-------|-----------------------|
+| `mlp` | Multilayer Perceptron |
+| `rf`  | Random Forest         |
+| `svm` | Support Vector Machine |
 
 
 
-
-
-| Dataset | IPC | Classes | Norm | Full AUC | Rand AUC | Herd AUC | DM AUC | embed_hidden | embed_dim | iters | lr | file |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| adult | 10 | - | LayerNorm | 0.8951 | 0.7320 | 0.8403 | 0.8412 | 256 | 128 | 2000 | 0.05 | adult_trueDM_ipc10_LayerNorm_h256_e128_it2000_lr0.05_20251201-203506.json |
-| airlines | 10 | - | LayerNorm | 0.7006 | 0.5262 | 0.6513 | 0.6051 | 256 | 128 | 2000 | 0.05 | airlines_trueDM_ipc10_LayerNorm_h256_e128_it2000_lr0.05_20251201-204026.json |
-| bank | 10 | - | LayerNorm | 0.9151 | 0.6922 | 0.8461 | 0.8112 | 256 | 128 | 2000 | 0.05 | bank_trueDM_ipc10_LayerNorm_h256_e128_it2000_lr0.05_20251201-203526.json |
-| covertype | 10 | - | LayerNorm | 0.9901 | 0.7323 | 0.8237 | 0.8189 | 256 | 128 | 2000 | 0.05 | covertype_trueDM_ipc10_LayerNorm_h256_e128_it2000_lr0.05_20251201-203815.json |
-| credit | 10 | - | LayerNorm | 0.7703 | 0.6701 | 0.6921 | 0.7281 | 256 | 128 | 2000 | 0.05 | credit_trueDM_ipc10_LayerNorm_h256_e128_it2000_lr0.05_20251201-203539.json |
-| drybean | 10 | - | LayerNorm | 0.9996 | 0.9695 | 0.9771 | 0.9735 | 256 | 128 | 2000 | 0.05 | drybean_trueDM_ipc10_LayerNorm_h256_e128_it2000_lr0.05_20251201-203444.json |
-| higgs | 10 | - | LayerNorm | 0.7865 | 0.5080 | 0.6237 | 0.5770 | 256 | 128 | 2000 | 0.05 | higgs_trueDM_ipc10_LayerNorm_h256_e128_it2000_lr0.05_20251201-204057.json |
-
-| Dataset | IPC | Classes | Norm | Full AUC | Rand AUC | Herd AUC | DM AUC | embed_hidden | embed_dim | iters | lr | file |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| adult | 10 | - | BatchNorm | 0.8951 | 0.7320 | 0.8403 | 0.8293 | 256 | 128 | 2000 | 0.05 | adult_trueDM_ipc10_BatchNorm_h256_e128_it2000_lr0.05_20251201-205306.json |
-| airlines | 10 | - | BatchNorm | 0.7006 | 0.5262 | 0.6513 | 0.5349 | 256 | 128 | 2000 | 0.05 | airlines_trueDM_ipc10_BatchNorm_h256_e128_it2000_lr0.05_20251201-205854.json |
-| bank | 10 | - | BatchNorm | 0.9151 | 0.6922 | 0.8461 | 0.7077 | 256 | 128 | 2000 | 0.05 | bank_trueDM_ipc10_BatchNorm_h256_e128_it2000_lr0.05_20251201-205325.json |
-| covertype | 10 | - | BatchNorm | 0.9901 | 0.7323 | 0.8238 | 0.7964 | 256 | 128 | 2000 | 0.05 | covertype_trueDM_ipc10_BatchNorm_h256_e128_it2000_lr0.05_20251201-205634.json |
-| credit | 10 | - | BatchNorm | 0.7703 | 0.6701 | 0.6921 | 0.6571 | 256 | 128 | 2000 | 0.05 | credit_trueDM_ipc10_BatchNorm_h256_e128_it2000_lr0.05_20251201-205340.json |
-| drybean | 10 | - | BatchNorm | 0.9996 | 0.9695 | 0.9770 | 0.9757 | 256 | 128 | 2000 | 0.05 | drybean_trueDM_ipc10_BatchNorm_h256_e128_it2000_lr0.05_20251201-205245.json |
-| higgs | 10 | - | BatchNorm | 0.7865 | 0.5080 | 0.6237 | 0.5310 | 256 | 128 | 2000 | 0.05 | higgs_trueDM_ipc10_BatchNorm_h256_e128_it2000_lr0.05_20251201-205928.json |
-
-### Alternative BN
-
-| Dataset | IPC | Classes | Norm | Full AUC | Rand AUC | Herd AUC | DM AUC | embed_hidden | embed_dim | iters | lr | file |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| adult | 10 | - | BatchNorm | 0.8951 | 0.7320 | 0.8403 | 0.8266 | 256 | 128 | 2000 | 0.05 | adult_trueDM_ipc10_BatchNorm_h256_e128_it2000_lr0.05_20251202-180557.json |
-| airlines | 10 | - | BatchNorm | 0.7006 | 0.5262 | 0.6513 | 0.5345 | 256 | 128 | 2000 | 0.05 | airlines_trueDM_ipc10_BatchNorm_h256_e128_it2000_lr0.05_20251202-181113.json |
-| bank | 10 | - | BatchNorm | 0.9151 | 0.6922 | 0.8461 | 0.7098 | 256 | 128 | 2000 | 0.05 | bank_trueDM_ipc10_BatchNorm_h256_e128_it2000_lr0.05_20251202-180613.json |
-| covertype | 10 | - | BatchNorm | 0.9901 | 0.7323 | 0.8236 | 0.7969 | 256 | 128 | 2000 | 0.05 | covertype_trueDM_ipc10_BatchNorm_h256_e128_it2000_lr0.05_20251202-180900.json |
-| credit | 10 | - | BatchNorm | 0.7703 | 0.6701 | 0.6921 | 0.6554 | 256 | 128 | 2000 | 0.05 | credit_trueDM_ipc10_BatchNorm_h256_e128_it2000_lr0.05_20251202-180626.json |
-| drybean | 10 | - | BatchNorm | 0.9996 | 0.9695 | 0.9771 | 0.9756 | 256 | 128 | 2000 | 0.05 | drybean_trueDM_ipc10_BatchNorm_h256_e128_it2000_lr0.05_20251202-180539.json |
-| higgs | 10 | - | BatchNorm | 0.7865 | 0.5080 | 0.6237 | 0.5295 | 256 | 128 | 2000 | 0.05 | higgs_trueDM_ipc10_BatchNorm_h256_e128_it2000_lr0.05_20251202-181143.json |
+![workflow_diagram](media/simple_workflow.png)

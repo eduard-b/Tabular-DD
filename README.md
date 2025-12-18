@@ -1,3 +1,8 @@
+### Experiments
+
+We temporary aggregate the results in separate .md files:
+- [experiment_documentation_18-12-25](experiment_documentation_18-12-25.md)
+
 ### How to perform an experiment
 
 The code base was structured into the following pipeline. To perform a sweep experiment, we use the in-file config with the following options:

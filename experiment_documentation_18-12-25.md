@@ -58,6 +58,12 @@ We choose random initialization for each embedder, to avoid overfitting to a par
 
 **One conclusion is that Vector Quantization [VQ] or Herding regularly out-perform DM methods, as a potential particularity of tabular data low dimension feature space. We test the following methods:**
 
+Quick summary:
+- Vector Quantization uses K-Means to pick synthetic samples as the centroids of each cluster
+- Voronoi-Restricted sampling uses K-means to pick real samples close to the centroids of each cluster
+- Herding is an iterative algorithm that builds a real subset by minimizing distribution distance between the subset and the real dataset
+- Gonzalez is an algorithm that builds a real subset to maximize global coverage of the entire class.
+
 |dataset  |full_acc    |full_auc    |random_acc  |random_auc  |vq_acc             |vq_auc            |voronoi_acc        |voronoi_auc       |gonzalez_acc       |gonzalez_auc      |herding_acc       |herding_auc       |
 |---------|------------|------------|------------|------------|-------------------|------------------|-------------------|------------------|-------------------|------------------|------------------|------------------|
 |adult    |0.847413675446977|0.89607522989448|0.6925071652791047|0.7319790196149467|0.7376825440152859 |0.8456630091916857|0.6967380919885355 |0.8214922350551446|0.255766343660434  |0.7390752149526436|0.6286338201173741|0.7794852066609479|

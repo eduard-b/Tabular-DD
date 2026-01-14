@@ -236,6 +236,197 @@ class EmbedderLNCascade(nn.Module):
     def forward(self, x):
         return self.net(x)
 
+import math
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+# ----------------------------
+# 12. LN ResMLP: deeper + wider
+# ----------------------------
+
+class _LNResBlock(nn.Module):
+    def __init__(self, dim: int, expansion: int = 4, dropout: float = 0.0):
+        super().__init__()
+        inner = dim * expansion
+        self.ln1 = nn.LayerNorm(dim)
+        self.fc1 = nn.Linear(dim, inner)
+        self.fc2 = nn.Linear(inner, dim)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        h = self.ln1(x)
+        h = F.gelu(self.fc1(h))
+        h = self.dropout(h)
+        h = self.fc2(h)
+        return x + h
+
+
+class EmbedderLNResXL(nn.Module):
+    """
+    Deeper + wider residual MLP embedder:
+      x -> proj -> [ResBlocks]*depth -> LN -> out_proj
+    """
+    def __init__(
+        self,
+        input_dim: int,
+        hidden: int,
+        embed_dim: int,
+        depth: int = 8,
+        expansion: int = 4,
+        dropout: float = 0.0,
+    ):
+        super().__init__()
+        self.in_proj = nn.Linear(input_dim, hidden)
+        self.blocks = nn.ModuleList(
+            [_LNResBlock(hidden, expansion=expansion, dropout=dropout) for _ in range(depth)]
+        )
+        self.out_ln = nn.LayerNorm(hidden)
+        self.out_proj = nn.Linear(hidden, embed_dim)
+
+    def forward(self, x):
+        x = self.in_proj(x)
+        for blk in self.blocks:
+            x = blk(x)
+        x = self.out_ln(x)
+        x = self.out_proj(x)
+        return x
+
+
+# -----------------------------------------
+# 13. NODE-style embedder: soft oblivious trees
+# -----------------------------------------
+
+def _leaf_bit_matrix(depth: int, device=None):
+    """
+    Returns bits matrix of shape (2^depth, depth) with entries in {0,1}
+    where row i is the binary representation of i over 'depth' bits.
+    """
+    n_leaves = 2 ** depth
+    ar = torch.arange(n_leaves, device=device).unsqueeze(1)  # (L,1)
+    bits = (ar >> torch.arange(depth, device=device)) & 1    # (L,depth) little-endian
+    return bits.float()
+
+
+class ObliviousTreeEnsemble(nn.Module):
+    """
+    Differentiable oblivious trees (NODE-ish):
+    - Each depth chooses a (soft) feature via softmax over input dims
+    - Uses learnable thresholds and temperatures (alpha)
+    - Computes leaf probabilities and mixes leaf values -> (B, tree_dim)
+    """
+    def __init__(
+        self,
+        input_dim: int,
+        num_trees: int,
+        depth: int,
+        tree_dim: int,
+        alpha_init: float = 5.0,
+    ):
+        super().__init__()
+        self.input_dim = input_dim
+        self.num_trees = num_trees
+        self.depth = depth
+        self.tree_dim = tree_dim
+
+        # Feature selection logits: (T, D, input_dim)
+        self.feature_logits = nn.Parameter(torch.zeros(num_trees, depth, input_dim))
+
+        # Thresholds per tree+depth: (T, D)
+        self.thresholds = nn.Parameter(torch.zeros(num_trees, depth))
+
+        # Temperature / sharpness per tree+depth: (T, D), constrained positive via softplus
+        self.alpha_unconstrained = nn.Parameter(torch.full((num_trees, depth), math.log(math.exp(alpha_init) - 1.0)))
+
+        # Leaf values: (T, 2^D, tree_dim)
+        self.leaf_values = nn.Parameter(torch.zeros(num_trees, 2 ** depth, tree_dim))
+
+        # Small init helps stability
+        nn.init.normal_(self.leaf_values, mean=0.0, std=0.02)
+
+    def forward(self, x):
+        """
+        x: (B, input_dim)
+        returns: (B, tree_dim)
+        """
+        B, Din = x.shape
+        assert Din == self.input_dim
+
+        device = x.device
+        bits = _leaf_bit_matrix(self.depth, device=device)  # (L, D)
+        L = bits.shape[0]
+
+        # Soft feature selection
+        sel = F.softmax(self.feature_logits, dim=-1)  # (T, D, Din)
+
+        # Selected feature value per tree+depth: (B, T, D)
+        # einsum: (B,Din) x (T,D,Din) -> (B,T,D)
+        x_sel = torch.einsum("bi,tdi->btd", x, sel)
+
+        # Compute decision probs p in (0,1): (B,T,D)
+        alpha = F.softplus(self.alpha_unconstrained) + 1e-6
+        thr = self.thresholds
+        p = torch.sigmoid((x_sel - thr.unsqueeze(0)) * alpha.unsqueeze(0))
+
+        # Leaf probs for each tree: (B,T,L)
+        # For leaf with bit=1 use p, else use (1-p)
+        # Expand to (B,T,1,D) and (1,1,L,D)
+        p_exp = p.unsqueeze(2)                 # (B,T,1,D)
+        bits_exp = bits.view(1, 1, L, self.depth)
+        probs = bits_exp * p_exp + (1.0 - bits_exp) * (1.0 - p_exp)  # (B,T,L,D)
+        leaf_prob = probs.prod(dim=-1)         # (B,T,L)
+
+        # Mix leaf values: (B,T,L) @ (T,L,tree_dim) -> (B,T,tree_dim)
+        out = torch.einsum("btl,tld->btd", leaf_prob, self.leaf_values)
+
+        # Sum over trees -> (B, tree_dim)
+        return out.sum(dim=1)
+
+
+class EmbedderNODE(nn.Module):
+    """
+    A NODE-style embedder built as stacked oblivious-tree ensembles with residuals.
+    Produces (B, embed_dim).
+    """
+    def __init__(
+        self,
+        input_dim: int,
+        hidden: int,      # not strictly needed; kept for compatibility with your factory
+        embed_dim: int,
+        num_layers: int = 4,
+        num_trees: int = 64,
+        depth: int = 6,
+        tree_dim: int = None,
+        dropout: float = 0.0,
+    ):
+        super().__init__()
+        if tree_dim is None:
+            tree_dim = max(16, embed_dim // 2)
+
+        self.in_proj = nn.Linear(input_dim, tree_dim)
+        self.layers = nn.ModuleList([
+            ObliviousTreeEnsemble(
+                input_dim=tree_dim,
+                num_trees=num_trees,
+                depth=depth,
+                tree_dim=tree_dim,
+            )
+            for _ in range(num_layers)
+        ])
+        self.ln = nn.LayerNorm(tree_dim)
+        self.dropout = nn.Dropout(dropout)
+        self.out_proj = nn.Linear(tree_dim, embed_dim)
+
+    def forward(self, x):
+        h = self.in_proj(x)  # (B, tree_dim)
+        for layer in self.layers:
+            # residual update (NODE-ish stacking)
+            h = h + self.dropout(layer(self.ln(h)))
+        return self.out_proj(self.ln(h))
+
+
+
 EMBEDDER_REGISTRY = {
     # ------------------
     # BatchNorm embedders
@@ -254,6 +445,12 @@ EMBEDDER_REGISTRY = {
     "ln_wide": EmbedderLNWide,
     "ln_res": EmbedderLNRes,
     "ln_cascade": EmbedderLNCascade,
+
+    # ------------------
+    # New embedders
+    # ------------------
+    "ln_res_xl": EmbedderLNResXL,
+    "node": EmbedderNODE,
 }
 
 def build_embedder(name: str, **kwargs):
@@ -288,6 +485,30 @@ def sample_random_embedder(
             input_dim=input_dim,
             hidden=hidden * 2,
             embed_dim=embed_dim,
+        )
+
+    elif name in {"ln_res_xl"}:
+        # wider + deeper than your baseline ln_res
+        kwargs = dict(
+            input_dim=input_dim,
+            hidden=hidden * 2,
+            embed_dim=embed_dim,
+            depth=10,
+            expansion=4,
+            dropout=0.0,
+        )
+
+    elif name in {"node"}:
+        # NODE-ish defaults; hidden kept for signature compat
+        kwargs = dict(
+            input_dim=input_dim,
+            hidden=hidden,
+            embed_dim=embed_dim,
+            num_layers=2,
+            num_trees=64,
+            depth=6,
+            tree_dim=max(16, embed_dim // 2),
+            dropout=0.0,
         )
 
     else:

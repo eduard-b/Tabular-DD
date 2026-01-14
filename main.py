@@ -62,53 +62,54 @@ if __name__ == "__main__":
         "credit",
         "covertype",
         "airlines",
-        "higgs",
+        "higgs"
     ]
 
-    EMBEDDER = "ln_res"
+    EMBEDDERS = ["node"]
 
     MOMENT_EXPERIMENTS = [
-        {"name": "M1", "max_moment": 1},
+        # {"name": "M1", "max_moment": 1},
         {"name": "M2", "max_moment": 2},
-        {"name": "M3", "max_moment": 3},
-        {"name": "M4", "max_moment": 4},
+        # {"name": "M3", "max_moment": 3},
+        # {"name": "M4", "max_moment": 4},
     ]
 
-    RESULTS_DIR = "./results_moments"
+    RESULTS_DIR = "./results_NODE_v_LNRES_LNXL_ipc50"
     ensure_dir(RESULTS_DIR)
 
     for db in DB_LIST:
-        for exp in MOMENT_EXPERIMENTS:
+        for EMBEDDER in EMBEDDERS:
+            for exp in MOMENT_EXPERIMENTS:
 
-            save_dir = os.path.join(RESULTS_DIR, db, EMBEDDER, exp["name"])
+                save_dir = os.path.join(RESULTS_DIR, db, EMBEDDER, exp["name"])
 
-            config = {
-                "dataset_name": db,
-                "save_dir": save_dir,
-                "device": "cuda" if torch.cuda.is_available() else "cpu",
+                config = {
+                    "dataset_name": db,
+                    "save_dir": save_dir,
+                    "device": "cuda" if torch.cuda.is_available() else "cpu",
 
-                # Synthesis
-                "synth_type": "dm_moments",
-                "ipc": 10,
-                "dm_iters": 2000,
-                "dm_lr": 0.05,
-                "dm_batch_real": 256,
+                    # Synthesis
+                    "synth_type": "dm_moments",
+                    "ipc": 50,
+                    "dm_iters": 2000,
+                    "dm_lr": 0.05,
+                    "dm_batch_real": 256,
 
-                # Embedder
-                "dm_embedder_type": EMBEDDER,
-                "dm_embed_hidden": 256,
-                "dm_embed_dim": 128,
+                    # Embedder
+                    "dm_embedder_type": EMBEDDER,
+                    "dm_embed_hidden": 256,
+                    "dm_embed_dim": 128,
 
-                # Moments
-                "max_moment": exp["max_moment"],
+                    # Moments
+                    "max_moment": exp["max_moment"],
 
-                # Classifier
-                "classifier": "mlp",
-                "classifier_hidden": [128, 64],
-                "classifier_epochs": 20,
+                    # Classifier
+                    "classifier": "mlp",
+                    "classifier_hidden": [128, 64],
+                    "classifier_epochs": 20,
 
-                # Reproducibility
-                "random_seed": 42,
-            }
+                    # Reproducibility
+                    "random_seed": 42,
+                }
 
-            run_dm_moment_experiment(config)
+                run_dm_moment_experiment(config)

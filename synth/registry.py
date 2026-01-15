@@ -9,6 +9,9 @@ from .coreset_construction import (
 from .BatchNorm_stats_synth import batchnorm_stats_synthesize
 from .moments_synth import dm_moment_synthesize
 
+
+from .cov_matrix_synth import dm_moment_synthesize_cov2
+
 SYNTH_REGISTRY = {
     # -------------------------
     # Condensation methods
@@ -64,7 +67,13 @@ SYNTH_REGISTRY = {
     "fn": dm_moment_synthesize,
     "type": "condensation",
     "teacher_required": False,
-}
+    },
+
+    "dm_moments_cov2": {
+        "fn": dm_moment_synthesize_cov2,
+        "type": "condensation",
+        "teacher_required": False,
+    },
 }
 
 

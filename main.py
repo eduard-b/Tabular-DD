@@ -8,8 +8,8 @@ from synth.registry import synthesize
 from models.classifiers import train_classifier
 from eval.eval_classifiers import evaluate_classifier
 
-def run_dm_moment_experiment(config):
 
+def run_dm_moment_experiment(config):
     device = config["device"]
     ensure_dir(config["save_dir"])
 
@@ -18,7 +18,7 @@ def run_dm_moment_experiment(config):
 
     # ---------------- Synthesize ----------------
     X_syn, y_syn = synthesize(
-        synth_type="dm_moments",
+        synth_type=config["synth_type"],  # IMPORTANT: use config, not hardcoded
         data=data,
         config=config,
     )
@@ -41,9 +41,11 @@ def run_dm_moment_experiment(config):
     # ---------------- Save ----------------
     result = {
         "dataset": config["dataset_name"],
+        "synth_type": config["synth_type"],
         "embedder": config["dm_embedder_type"],
         "ipc": config["ipc"],
-        "max_moment": config["max_moment"],
+        "max_moment": config.get("max_moment", None),
+        "cov_weight": config.get("cov_weight", None),
         "classifier": config.get("classifier", "mlp"),
         "test_acc": acc,
         "test_auc": auc,
@@ -52,6 +54,7 @@ def run_dm_moment_experiment(config):
     out_path = os.path.join(config["save_dir"], "result.json")
     with open(out_path, "w") as f:
         json.dump(result, f, indent=2)
+
 
 if __name__ == "__main__":
 
@@ -62,54 +65,57 @@ if __name__ == "__main__":
         "credit",
         "covertype",
         "airlines",
-        "higgs"
+        "higgs",
     ]
 
-    EMBEDDERS = ["node"]
+    EMBEDDERS = ["ln_res", "ln_res_xl", "node"]  # add others if you want, e.g. 
 
-    MOMENT_EXPERIMENTS = [
-        # {"name": "M1", "max_moment": 1},
-        {"name": "M2", "max_moment": 2},
-        # {"name": "M3", "max_moment": 3},
-        # {"name": "M4", "max_moment": 4},
+    # Compare old diagonal M2 vs new full-covariance M2
+    SYNTH_EXPERIMENTS = [
+        {"name": "M2_fullcov", "synth_type": "dm_moments_cov2", "max_moment": 2},
     ]
 
-    RESULTS_DIR = "./results_NODE_v_LNRES_LNXL_ipc50"
+    RESULTS_DIR = "./results_cov2_ablation_ipc_variable"
     ensure_dir(RESULTS_DIR)
 
+    IPC_LIST = [1, 5, 25, 50, 100]
+
     for db in DB_LIST:
-        for EMBEDDER in EMBEDDERS:
-            for exp in MOMENT_EXPERIMENTS:
+        for embedder in EMBEDDERS:
+            for exp in SYNTH_EXPERIMENTS:
+                for ipc in IPC_LIST:
 
-                save_dir = os.path.join(RESULTS_DIR, db, EMBEDDER, exp["name"])
+                    save_dir = os.path.join(RESULTS_DIR, db, embedder, str(ipc), exp["name"])
+                    ensure_dir(save_dir)
 
-                config = {
-                    "dataset_name": db,
-                    "save_dir": save_dir,
-                    "device": "cuda" if torch.cuda.is_available() else "cpu",
+                    config = {
+                        "dataset_name": db,
+                        "save_dir": save_dir,
+                        "device": "cuda" if torch.cuda.is_available() else "cpu",
 
-                    # Synthesis
-                    "synth_type": "dm_moments",
-                    "ipc": 50,
-                    "dm_iters": 2000,
-                    "dm_lr": 0.05,
-                    "dm_batch_real": 256,
+                        # ---------------- Synthesis ----------------
+                        "synth_type": exp["synth_type"],
+                        "ipc": ipc,
+                        "dm_iters": 2000,
+                        "dm_lr": 0.05,
+                        "dm_batch_real": 256,
 
-                    # Embedder
-                    "dm_embedder_type": EMBEDDER,
-                    "dm_embed_hidden": 256,
-                    "dm_embed_dim": 128,
+                        # ---------------- Embedder ----------------
+                        "dm_embedder_type": embedder,
+                        "dm_embed_hidden": 256,
+                        "dm_embed_dim": 128,
 
-                    # Moments
-                    "max_moment": exp["max_moment"],
+                        # ---------------- Moments ----------------
+                        "max_moment": exp["max_moment"],
+                        "cov_weight": 1.0,  # only used by dm_moments_cov2 (safe to keep)
 
-                    # Classifier
-                    "classifier": "mlp",
-                    "classifier_hidden": [128, 64],
-                    "classifier_epochs": 20,
+                        # ---------------- Classifier ----------------
+                        "classifier": "mlp",
+                        "classifier_hidden": [128, 64],
+                        "classifier_epochs": 20,
 
-                    # Reproducibility
-                    "random_seed": 42,
-                }
+                        # ---------------- Reproducibility ----------------
+                        "random_seed": 42,
+                    }
 
-                run_dm_moment_experiment(config)
+                    run_dm_moment_experiment(config)
